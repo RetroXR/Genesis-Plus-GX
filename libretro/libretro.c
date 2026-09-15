@@ -1092,7 +1092,7 @@ static void bram_load(void)
     }
 
     /* automatically load cartridge backup RAM (if enabled) */
-    if (scd.cartridge.id)
+    if (scd.cartridge.id >= 1 && scd.cartridge.id <= 6)
     {
       fp = filestream_open(CART_BRAM, RETRO_VFS_FILE_ACCESS_READ, RETRO_VFS_FILE_ACCESS_HINT_NONE);
       if (fp != NULL)
@@ -1174,7 +1174,7 @@ static void bram_save(void)
     }
 
     /* verify that cartridge backup RAM has been modified */
-    if (scd.cartridge.id && (crc32(0, scd.cartridge.area, scd.cartridge.mask + 1) != brm_crc[1]))
+    if (scd.cartridge.id >= 1 && scd.cartridge.id <= 6 && (crc32(0, scd.cartridge.area, scd.cartridge.mask + 1) != brm_crc[1]))
     {
       /* check if it is correctly formatted before saving */
       if (!memcmp(scd.cartridge.area + scd.cartridge.mask + 1 - 0x20, brm_format + 0x20, 0x20))
