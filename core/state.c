@@ -37,6 +37,7 @@
  ****************************************************************************************/
 
 #include "shared.h"
+#include "gamepad.h"
 
 int8 fast_savestates = false;
 int8 reset_do_not_clear_buffers = false;
@@ -192,6 +193,37 @@ int state_load(unsigned char *state)
     sms_cart_switch(~io_reg[0x0E]);
   }
 
+  /* controller protocol state (absent from states written before it was added) */
+  if (!memcmp(&state[bufferptr], "PAD!", 4))
+  {
+    bufferptr += 4;
+    bufferptr += gamepad_context_load(&state[bufferptr]);
+    load_param(input.pad, sizeof(input.pad));
+    load_param(input.analog, sizeof(input.analog));
+  }
+
+  /* YM2612 BUSY deadline */
+  if (!memcmp(&state[bufferptr], "FMB!", 4))
+  {
+    int busy;
+    bufferptr += 4;
+    load_param(&busy, sizeof(busy));
+    sound_busy_set(busy);
+  }
+
+  /* 68000 bus refresh schedule, idle-loop detector and prefetch: all carry
+     across frames and were left at their reset values by a load */
+  if (((system_hw & SYSTEM_PBC) == SYSTEM_MD) && !memcmp(&state[bufferptr], "M68!", 4))
+  {
+    bufferptr += 4;
+    load_param(&m68k.poll, sizeof(m68k.poll));
+    load_param(&m68k.refresh_cycles, sizeof(m68k.refresh_cycles));
+    load_param(&m68k.ir, sizeof(m68k.ir));
+    load_param(&m68k.prev_pc, sizeof(m68k.prev_pc));
+    load_param(&m68k.pref_addr, sizeof(m68k.pref_addr));
+    load_param(&m68k.pref_data, sizeof(m68k.pref_data));
+  }
+
   return bufferptr;
 }
 
@@ -281,6 +313,40 @@ int state_save(unsigned char *state)
   {
     /* MS cartridge hardware */
     bufferptr += sms_cart_context_save(&state[bufferptr]);
+  }
+
+  /* controller protocol state */
+  {
+    char id[4];
+    memcpy(id,"PAD!",4);
+    save_param(id, 4);
+    bufferptr += gamepad_context_save(&state[bufferptr]);
+    /* polled just before VINT, so the lines ahead of it read the last frame's */
+    save_param(input.pad, sizeof(input.pad));
+    save_param(input.analog, sizeof(input.analog));
+  }
+
+  /* YM2612 BUSY deadline */
+  {
+    char id[4];
+    int busy = sound_busy_get();
+    memcpy(id,"FMB!",4);
+    save_param(id, 4);
+    save_param(&busy, sizeof(busy));
+  }
+
+  /* 68000 state outside the context above */
+  if ((system_hw & SYSTEM_PBC) == SYSTEM_MD)
+  {
+    char id[4];
+    memcpy(id,"M68!",4);
+    save_param(id, 4);
+    save_param(&m68k.poll, sizeof(m68k.poll));
+    save_param(&m68k.refresh_cycles, sizeof(m68k.refresh_cycles));
+    save_param(&m68k.ir, sizeof(m68k.ir));
+    save_param(&m68k.prev_pc, sizeof(m68k.prev_pc));
+    save_param(&m68k.pref_addr, sizeof(m68k.pref_addr));
+    save_param(&m68k.pref_data, sizeof(m68k.pref_data));
   }
 
   /* return total size */

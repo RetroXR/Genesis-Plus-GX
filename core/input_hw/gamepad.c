@@ -56,6 +56,26 @@ static struct
 
 static uint8 latch;
 
+/* Savestate: the pads' TH protocol state (6-button counter, TH latency,
+   4-WayPlay latch, Team Player flip-flops) lives here and is otherwise lost
+   on load, so a rollback rewind resumed with whatever the mispredicted frames
+   left behind. */
+int gamepad_context_save(uint8 *state)
+{
+  memcpy(state, gamepad, sizeof(gamepad));
+  memcpy(state + sizeof(gamepad), flipflop, sizeof(flipflop));
+  state[sizeof(gamepad) + sizeof(flipflop)] = latch;
+  return sizeof(gamepad) + sizeof(flipflop) + 1;
+}
+
+int gamepad_context_load(uint8 *state)
+{
+  memcpy(gamepad, state, sizeof(gamepad));
+  memcpy(flipflop, state + sizeof(gamepad), sizeof(flipflop));
+  latch = state[sizeof(gamepad) + sizeof(flipflop)];
+  return sizeof(gamepad) + sizeof(flipflop) + 1;
+}
+
 
 void gamepad_reset(int port)
 {

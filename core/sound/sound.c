@@ -535,6 +535,12 @@ int sound_update(unsigned int cycles)
   return blip_samples_avail(snd.blips[0]);
 }
 
+/* The YM2612 BUSY deadline outlives the frame (see sound_update), so a state
+   that drops it reloads a chip that is suddenly not busy. Kept outside the
+   sound context so states written before it still load. */
+int sound_busy_get(void) { return fm_cycles_busy; }
+void sound_busy_set(int cycles) { fm_cycles_busy = cycles; }
+
 int sound_context_save(uint8 *state)
 {
   int bufferptr = 0;

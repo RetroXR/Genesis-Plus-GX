@@ -42,6 +42,8 @@
 
 /* Function prototypes */
 extern void gamepad_reset(int port);
+extern int gamepad_context_save(uint8 *state);
+extern int gamepad_context_load(uint8 *state);
 extern void gamepad_refresh(int port);
 extern void gamepad_end_frame(int port, unsigned int cycles);
 extern unsigned char gamepad_1_read(void);
