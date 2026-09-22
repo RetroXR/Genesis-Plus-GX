@@ -157,6 +157,13 @@ static const void *g_rom_data = NULL;
 static size_t g_rom_size      = 0;
 static char *save_dir         = NULL;
 
+
+/* Gear-to-Gear cable (gg_link.c) */
+extern void gg_link_init(retro_environment_t cb);
+extern void gg_link_start(void);
+extern void gg_link_stop(void);
+extern void gg_link_reset(void);
+
 retro_log_printf_t log_cb;
 static retro_video_refresh_t video_cb;
 static retro_input_poll_t input_poll_cb;
@@ -3687,6 +3694,8 @@ bool retro_load_game(const struct retro_game_info *info)
 
    init_frameskip();
 
+   gg_link_start();
+
    return true;
 
 error:
@@ -3715,6 +3724,7 @@ void retro_unload_game(void)
 {
 	/* Clear disk interface */
    int i;
+   gg_link_stop();
    disk_count = 0;
    disk_index = 0;
    for (i=0; i<MAX_DISKS; i++)
@@ -3833,6 +3843,7 @@ void retro_init(void)
 
    environ_cb(RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS, &serialization_quirks);
    environ_cb(RETRO_ENVIRONMENT_SET_DISK_CONTROL_INTERFACE, &disk_ctrl);
+   gg_link_init(environ_cb);
 
    frameskip_type             = 0;
    frameskip_threshold        = 0;
@@ -3860,6 +3871,7 @@ void retro_reset(void)
    update_overclock();
 #endif
    gen_reset(0);
+   gg_link_reset();
 }
 
 extern int8 audio_hard_disable;

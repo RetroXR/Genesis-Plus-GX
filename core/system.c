@@ -40,6 +40,7 @@
  ****************************************************************************************/
 
 #include "shared.h"
+#include "gg_link.h"
 #include "yx5200.h"
 #include "eq.h"
 
@@ -1212,6 +1213,10 @@ void system_frame_sms(int do_skip)
   /* refresh inputs just before VINT */
   osd_input_update();
 
+  /* rendezvous with a Gear-to-Gear peer */
+
+  if (gg_link_line) gg_link_line(mcycles_vdp);
+
   /* run Z80 until end of line */
   z80_run(MCYCLES_PER_LINE);
 
@@ -1266,6 +1271,10 @@ void system_frame_sms(int do_skip)
 
     /* update 6-Buttons & Lightguns */
     input_refresh();
+
+    /* rendezvous with a Gear-to-Gear peer */
+
+    if (gg_link_line) gg_link_line(mcycles_vdp);
 
     /* run Z80 until end of line */
     z80_run(mcycles_vdp + MCYCLES_PER_LINE);
@@ -1348,6 +1357,10 @@ void system_frame_sms(int do_skip)
   /* update 6-Buttons & Lightguns */
   input_refresh();
 
+  /* rendezvous with a Gear-to-Gear peer */
+
+  if (gg_link_line) gg_link_line(mcycles_vdp);
+
   /* run Z80 until end of line */
   z80_run(mcycles_vdp + MCYCLES_PER_LINE);
 
@@ -1414,6 +1427,10 @@ void system_frame_sms(int do_skip)
       h_counter--;
     }
 
+    /* rendezvous with a Gear-to-Gear peer */
+
+    if (gg_link_line) gg_link_line(mcycles_vdp);
+
     /* run Z80 until end of line */
     z80_run(mcycles_vdp + MCYCLES_PER_LINE);
 
@@ -1431,5 +1448,6 @@ void system_frame_sms(int do_skip)
 
   /* adjust timings for next frame */
   input_end_frame(mcycles_vdp);
+  if (gg_link_frame) gg_link_frame(mcycles_vdp);
   Z80.cycles -= mcycles_vdp;
 }

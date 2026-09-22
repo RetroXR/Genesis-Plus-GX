@@ -47,6 +47,7 @@
 #include "xe_1ap.h"
 #include "teamplayer.h"
 #include "paddle.h"
+#include "gg_link.h"
 #include "sportspad.h"
 #include "graphic_board.h"
 #include "smash.h"
@@ -616,7 +617,28 @@ unsigned int io_z80_read(unsigned int offset)
  *                                                                           *
  *****************************************************************************/
 
+void (*gg_link_line)(unsigned int cycles) = NULL;
+void (*gg_link_frame)(unsigned int cycles) = NULL;
+void (*gg_link_write)(unsigned int offset, unsigned int data) = NULL;
+unsigned int (*gg_link_read)(unsigned int offset, unsigned int value) = NULL;
+
+static void io_gg_reg_write(unsigned int offset, unsigned int data);
+static unsigned int io_gg_reg_read(unsigned int offset);
+
 void io_gg_write(unsigned int offset, unsigned int data)
+{
+  io_gg_reg_write(offset, data);
+  if (gg_link_write)
+    gg_link_write(offset, data);
+}
+
+unsigned int io_gg_read(unsigned int offset)
+{
+  unsigned int data = io_gg_reg_read(offset);
+  return gg_link_read ? gg_link_read(offset, data) : data;
+}
+
+static void io_gg_reg_write(unsigned int offset, unsigned int data)
 {
   switch (offset)
   {
@@ -633,7 +655,7 @@ void io_gg_write(unsigned int offset, unsigned int data)
       return;
 
     case 5: /* Serial control (bits 0-2 are read-only) */
-      io_reg[5] = data & 0xF8;
+      io_reg[5] = (data & 0xF8) | (io_reg[5] & 0x07);
       return;
 
     case 6: /* PSG Stereo output control */
@@ -646,7 +668,7 @@ void io_gg_write(unsigned int offset, unsigned int data)
   }
 }
 
-unsigned int io_gg_read(unsigned int offset)
+static unsigned int io_gg_reg_read(unsigned int offset)
 {
   switch (offset)
   {
