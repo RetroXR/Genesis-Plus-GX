@@ -56,6 +56,9 @@ uint32 system_clock;
 int16 SVP_cycles = 800; 
 
 static uint8 pause_b;
+
+uint8 system_pause_get(void) { return pause_b; }
+void system_pause_set(uint8 pause) { pause_b = pause; }
 static EQSTATE eq[2];
 static int16 llp,rrp;
 

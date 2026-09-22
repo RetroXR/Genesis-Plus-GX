@@ -224,6 +224,16 @@ int state_load(unsigned char *state)
     load_param(&m68k.pref_data, sizeof(m68k.pref_data));
   }
 
+  /* Master System PAUSE edge latch: without it a load taken while PAUSE is
+     held raises (or skips) the NMI depending on the timeline it came from */
+  if (!memcmp(&state[bufferptr], "PSE!", 4))
+  {
+    uint8 pause;
+    bufferptr += 4;
+    load_param(&pause, sizeof(pause));
+    system_pause_set(pause);
+  }
+
   return bufferptr;
 }
 
@@ -347,6 +357,15 @@ int state_save(unsigned char *state)
     save_param(&m68k.prev_pc, sizeof(m68k.prev_pc));
     save_param(&m68k.pref_addr, sizeof(m68k.pref_addr));
     save_param(&m68k.pref_data, sizeof(m68k.pref_data));
+  }
+
+  /* Master System PAUSE edge latch */
+  {
+    char id[4];
+    uint8 pause = system_pause_get();
+    memcpy(id,"PSE!",4);
+    save_param(id, 4);
+    save_param(&pause, sizeof(pause));
   }
 
   /* return total size */

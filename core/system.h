@@ -111,6 +111,8 @@ extern uint32 system_clock;
 extern int audio_init(int samplerate, double framerate);
 extern void audio_set_rate(int samplerate, double framerate);
 extern void audio_reset(void);
+extern uint8 system_pause_get(void);
+extern void system_pause_set(uint8 pause);
 extern void audio_shutdown(void);
 extern int audio_update(int16 *buffer);
 extern void audio_set_equalizer(void);
