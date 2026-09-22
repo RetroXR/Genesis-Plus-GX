@@ -1,5 +1,5 @@
-# Build the retroXR Genesis Plus GX core for Windows and Android and publish it
-# as a release, so retroXR's CoreDownloadManager can fetch it.
+# Build the retroXR Genesis Plus GX core for Windows, Android, Linux and macOS
+# and publish it as a release, so retroXR's CoreDownloadManager can fetch it.
 #
 # This fork carries the Game Gear's Gear-to-Gear cable: the EXT port
 # (libretro/gg_link.c) joins a link bus the frontend hosts through
@@ -7,8 +7,17 @@
 # `gg-ext-1`. With no bus, or nothing cabled, the port behaves exactly as the
 # stock core's does, so there is no option to switch it on.
 #
+# It also carries the state rollback netplay needs: tagged savestate blocks for
+# the 68000's refresh schedule and prefetch, the YM2612 BUSY deadline, the pad
+# protocol latches and the Master System PAUSE edge, each of which a reload left
+# at its reset value. Older states still load.
+#
 #   Windows  genesis_plus_gx_libretro.dll.zip          containing genesis_plus_gx_libretro.dll
 #   Android  genesis_plus_gx_libretro_android.so.zip   containing genesis_plus_gx_libretro_android.so
+#   Linux    genesis_plus_gx_libretro.so.zip           containing genesis_plus_gx_libretro.so
+#   macOS    genesis_plus_gx_libretro_arm64.dylib.zip
+#            genesis_plus_gx_libretro_x86_64.dylib.zip
+#              each containing genesis_plus_gx_libretro.dylib
 #
 # The release must NOT be a prerelease: the download URL is the /releases/latest/
 # form, and GitHub's `latest` skips prereleases.
@@ -134,9 +143,100 @@ jobs:
           path: genesis_plus_gx_libretro_android.so.zip
           if-no-files-found: error
 
+  # The oldest Ubuntu runner: a shared library loads only against a glibc at
+  # least as new as the one it was linked with.
+  linux:
+    name: Linux x86_64
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make zip
+
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Build
+        run: |
+          make -f Makefile.libretro platform=unix -j$(nproc)
+
+      - name: Package
+        run: |
+          mapfile -t hits < <(find . -maxdepth 1 -name 'genesis_plus_gx_libretro.so' -type f)
+          if [ "${#hits[@]}" -ne 1 ]; then
+            echo "expected exactly one genesis_plus_gx_libretro.so, found ${#hits[@]}:"
+            printf '  %s\n' "${hits[@]}"
+            exit 1
+          fi
+          mkdir -p stage
+          cp "${hits[0]}" stage/genesis_plus_gx_libretro.so
+          (cd stage && zip -q -X ../genesis_plus_gx_libretro.so.zip genesis_plus_gx_libretro.so)
+          file stage/genesis_plus_gx_libretro.so
+          ls -lh genesis_plus_gx_libretro.so.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: genesis_plus_gx_libretro.so.zip
+          if-no-files-found: error
+
+  # Both architectures on one Apple Silicon runner, with the flags libretro's
+  # own osx-arm64 CI template passes: the osx branch of the makefile only
+  # applies a target triple and SDK when CROSS_COMPILE=1.
+  macos:
+    name: macOS ${{ matrix.arch }}
+    runs-on: macos-14
+    strategy:
+      matrix:
+        include:
+          - arch: arm64
+            triple: arm64-apple-macos10.15
+          - arch: x86_64
+            triple: x86_64-apple-macos10.13
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Build
+        run: |
+          make -f Makefile.libretro platform=osx CC=clang CXX=clang++ CROSS_COMPILE=1 \
+            LIBRETRO_APPLE_PLATFORM=${{ matrix.triple }} \
+            LIBRETRO_APPLE_ISYSROOT="$(xcrun --sdk macosx --show-sdk-path)" \
+            -j$(sysctl -n hw.ncpu)
+
+      - name: Package
+        run: |
+          lib=genesis_plus_gx_libretro.dylib
+          mapfile -t hits < <(find . -maxdepth 1 -name "$lib" -type f)
+          if [ "${#hits[@]}" -ne 1 ]; then
+            echo "expected exactly one $lib, found ${#hits[@]}:"
+            printf '  %s\n' "${hits[@]}"
+            exit 1
+          fi
+          lipo -info "${hits[0]}"
+          if [ "$(lipo -archs "${hits[0]}")" != "${{ matrix.arch }}" ]; then
+            echo "$lib is not ${{ matrix.arch }}"
+            exit 1
+          fi
+          mkdir -p stage
+          cp "${hits[0]}" "stage/$lib"
+          (cd stage && zip -q -X ../genesis_plus_gx_libretro_${{ matrix.arch }}.dylib.zip "$lib")
+          ls -lh genesis_plus_gx_libretro_${{ matrix.arch }}.dylib.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: genesis_plus_gx_libretro_${{ matrix.arch }}.dylib.zip
+          if-no-files-found: error
+
   publish:
     name: Publish release
-    needs: [windows, android]
+    needs: [windows, android, linux, macos]
     if: github.event_name == 'push' || github.event.inputs.tag != ''
     runs-on: ubuntu-latest
     permissions:
@@ -156,11 +256,16 @@ jobs:
           cat > notes.md <<EOF
           Genesis Plus GX libretro core built for retroXR, from \`$GITHUB_SHA\`.
 
-          Windows x86_64 and Android arm64-v8a. The source for these binaries is
-          this tag.
+          Windows x86_64, Android arm64-v8a, Linux x86_64 and macOS arm64 and
+          x86_64. The source for these binaries is this tag.
 
           Over the stock buildbot build this carries the Game Gear's Gear-to-Gear
-          cable, spoken as \`gg-ext-1\` over a link bus the frontend hosts.
+          cable, spoken as \`gg-ext-1\` over a link bus the frontend hosts, and
+          the state rollback netplay needs: savestates now carry the 68000's
+          refresh schedule and prefetch, the YM2612 BUSY deadline, the pad
+          protocol latches and the Master System PAUSE edge, so a reloaded
+          machine runs on the same timeline as one that never stopped. The
+          blocks are tagged, so older states still load.
           EOF
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$TAG" \
@@ -171,4 +276,7 @@ jobs:
           gh release upload "$TAG" \
             dist/genesis_plus_gx_libretro.dll.zip \
             dist/genesis_plus_gx_libretro_android.so.zip \
+            dist/genesis_plus_gx_libretro.so.zip \
+            dist/genesis_plus_gx_libretro_arm64.dylib.zip \
+            dist/genesis_plus_gx_libretro_x86_64.dylib.zip \
             --repo "$GITHUB_REPOSITORY" --clobber
