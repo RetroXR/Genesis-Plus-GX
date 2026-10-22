@@ -4,7 +4,7 @@
 # This fork carries the Game Gear's Gear-to-Gear cable: the EXT port
 # (libretro/gg_link.c) joins a link bus the frontend hosts through
 # RETRO_ENVIRONMENT_GET_LINK_INTERFACE (libretro/RetroArch#19454) and speaks
-# `gg-ext-1`. With no bus, or nothing cabled, the port behaves exactly as the
+# `gg-ext`. With no bus, or nothing cabled, the port behaves exactly as the
 # stock core's does, so there is no option to switch it on.
 #
 # It also carries the state rollback netplay needs: tagged savestate blocks for
@@ -263,7 +263,7 @@ jobs:
           x86_64. The source for these binaries is this tag.
 
           Over the stock buildbot build this carries the Game Gear's Gear-to-Gear
-          cable, spoken as \`gg-ext-1\` over a link bus the frontend hosts, and
+          cable, spoken as \`gg-ext\` over a link bus the frontend hosts, and
           the state rollback netplay needs: savestates now carry the 68000's
           refresh schedule and prefetch, the YM2612 BUSY deadline, the pad
           protocol latches and the Master System PAUSE edge, so a reloaded

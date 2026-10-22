@@ -40,7 +40,7 @@ extern retro_log_printf_t log_cb;
  * that say whether a cable is doing anything. */
 #define GL_LOG(...) do { if (log_cb) log_cb(RETRO_LOG_WARN, __VA_ARGS__); } while (0)
 
-#define GL_PROTOCOL "gg-ext-1"
+#define GL_PROTOCOL "gg-ext"
 
 /* Rendezvous every four scanlines and promise a horizon of the same.
  *
